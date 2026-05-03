@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algoritmo di Hamming per rilevazione e correzione di 1 bit</title>
+    <style>
+        :root {
+            --primary: #1e40af; --secondary: #64748b; --success: #15803d;
+            --error: #b91c1c; --bg: #f8fafc; --panel: #ffffff;
+            --data-bit: #bbf7d0;   /* verde più evidente per i bit di dati */
+            --ctrl-bit: #bfdbfe;   /* azzurro più evidente per i bit di controllo */
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: #1e293b; padding: 20px; }
+        .wrapper { max-width: 1300px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 20px; padding: 20px; background: var(--primary); color: white; border-radius: 12px; }
+        
+        .grid-main { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 1000px) { .grid-main { grid-template-columns: 1fr; } }
+
+        .panel { background: var(--panel); border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        h2 { color: var(--primary); border-bottom: 3px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+
+        input[type="text"] { width: 100%; padding: 15px; border: 2px solid #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 1.2rem; letter-spacing: 2px; }
+        
+        .codeword-view { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; justify-content: center; min-height: 110px;}
+        .bit-unit { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 42px; transition: all 0.2s; }
+        
+        .pos-sub { font-size: 0.75rem; color: #000; font-weight: bold; margin-bottom: 2px; }
+        .bit-box { width: 100%; aspect-ratio: 1; border: 2px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; background: white; }
+        .bit-box.p-bit {
+            border-color: #1d4ed8;
+            background: var(--ctrl-bit);
+            color: #1e3a8a;
+        }
+
+        .bit-box.d-bit {
+            border-color: #15803d;
+            background: var(--data-bit);
+            color: #14532d;
+        }
+        .bit-box.error { background: var(--error); border-color: #7f1d1d; color: white; }
+		.bit-box.empty {
+		background: #dbeafe !important;
+		border: 3px dashed #1e40af !important;
+		color: transparent !important;
+		}
+	
+
+        .label-sub { font-size: 0.65rem; font-weight: bold; color: var(--secondary); margin-top: 2px;}
+
+        .info-box { background: #fffbeb; border: 1px solid #fde68a; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
+        th { text-align: left; padding: 10px; background: #f1f5f9; border-bottom: 2px solid #cbd5e1; }
+        td { padding: 8px; border-bottom: 1px solid #f1f5f9; }
+        tr.active-row:hover { background: #f0f9ff; cursor: help; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background-color: #fff; padding: 30px; border-radius: 12px; max-width: 650px; width: 95%; max-height: 90vh; overflow-y: auto; border-top: 10px solid var(--primary); }
+        .logic-step { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 12px 0; line-height: 1.6; }
+        .math-box { font-family: monospace; font-weight: bold; color: var(--error); background: #fee2e2; padding: 4px 10px; border-radius: 4px; display: inline-block; }
+        .close-btn { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; float: right; font-weight: bold; margin-top: 10px; }
+        
+        .weight-table { width: 100%; margin-top: 15px; border: 1px solid #cbd5e1; }
+        .weight-table td, .weight-table th { border: 1px solid #cbd5e1; text-align: center; padding: 8px; }
+        .weight-table th { background: #f1f5f9; }
+
+        .subset-floating-panel {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: min(560px, calc(100vw - 40px));
+            background: #ffffff;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+            padding: 15px;
+            z-index: 999;
+            display: none;
+            font-size: 0.9rem;
+        }
+
+        .subset-floating-panel.visible {
+            display: block;
+        }
+
+        .subset-floating-panel h3 {
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .subset-floating-bits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .subset-floating-bit {
+            min-width: 42px;
+            padding: 6px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #cbd5e1;
+            line-height: 1.25;
+        }
+
+        .subset-floating-bit.ctrl {
+            background: var(--ctrl-bit);
+            color: #1e3a8a;
+            border-color: #1d4ed8;
+        }
+
+        .subset-floating-bit.data {
+            background: var(--data-bit);
+            color: #14532d;
+            border-color: #15803d;
+        }
+
+        .subset-floating-note {
+            margin-top: 8px;
+            color: var(--secondary);
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }
+
+        .subset-close-btn {
+            margin-top: 10px;
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        
+        footer { text-align: center; margin-top: 40px; color: var(--secondary); font-size: 0.8rem; padding: 20px; border-top: 1px solid #e2e8f0; }
+
+        /* Migliorie responsive per smartphone */
+        @media (max-width: 640px) {
+            body { padding: 10px; }
+            .wrapper { width: 100%; }
+            header { padding: 16px 12px; margin-bottom: 12px; }
+            header h1 { font-size: 1.35rem; line-height: 1.25; }
+            header p { font-size: 0.92rem; line-height: 1.35; margin-top: 8px; }
+            .grid-main { gap: 12px; }
+            .panel { padding: 14px; border-radius: 10px; }
+            h2 { font-size: 1.18rem; margin-bottom: 14px; }
+            input[type="text"] { padding: 12px; font-size: 1rem; letter-spacing: 1px; }
+            .info-box { padding: 12px; font-size: 0.84rem; }
+            .codeword-view { gap: 6px; min-height: 80px; margin: 14px 0; }
+            .bit-unit { width: 34px; gap: 3px; }
+            .pos-sub { font-size: 0.68rem; }
+            .label-sub { font-size: 0.58rem; }
+            .bit-box { border-width: 2px; font-size: 0.9rem; }
+            table { display: block; width: 100%; overflow-x: auto; white-space: nowrap; font-size: 0.78rem; }
+            th, td { padding: 7px 6px; }
+            .modal { align-items: flex-start; padding: 10px; overflow-y: auto; }
+            .modal-content { width: 100%; max-width: none; max-height: none; padding: 18px; border-radius: 10px; }
+            .logic-step { padding: 12px; font-size: 0.9rem; }
+            .close-btn { float: none; width: 100%; margin-top: 12px; }
+            .subset-floating-panel {
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                max-height: 48vh;
+                overflow-y: auto;
+                border-left: 0;
+                border-right: 0;
+                border-bottom: 0;
+                border-radius: 14px 14px 0 0;
+                padding: 12px;
+                font-size: 0.84rem;
+            }
+            .subset-floating-bit { min-width: 34px; padding: 5px; font-size: 0.8rem; }
+            tr.active-row { cursor: pointer; }
+            tr.active-row td { padding-top: 10px; padding-bottom: 10px; }
+            .weight-table { min-width: 520px; }
+            footer { margin-top: 24px; padding: 14px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <header>
+        <h1>Simulatore dell’Algoritmo di Hamming</h1>
+        <p>Codifica e correzione dell’errore singolo con visualizzazione dei sottoinsiemi di parità</p>
+    </header>
+
+    <div class="grid-main">
+        <div class="panel">
+            <h2>Mittente (Encoder)</h2>
+            <input type="text" id="txIn" value="10011" oninput="runLab()" placeholder="Bit di dati...">
+            
+            <div id="trialArea" class="info-box">
+                <strong>Calcolo bit di controllo (c) per tentativi:</strong>
+                <table id="trialTbl"></table>
+            </div>
+
+            <div id="txResult" style="display:none">
+                <strong id="dynamicTxLabel">Codeword Trasmessa:</strong>
+                <div id="txGrid" class="codeword-view"></div>
+                <strong>Tabella Parità (Passa il mouse per isolare):</strong>
+                <table id="txSubsets"></table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Ricevitore (Decoder)</h2>
+            <p style="font-size: 0.8rem; color: var(--secondary);">Clicca un bit per simulare un errore:</p>
+            <div id="rxGrid" class="codeword-view"></div>
+
+            <div id="rxAnalysis" style="display:none">
+                <div id="synAlert" style="padding:15px; border-radius:8px; margin-bottom:15px; font-weight:bold;"></div>
+                <button id="btnMotivazione" onclick="showMotivation()" style="display:none; background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-bottom: 20px; font-weight: bold;">🔍 Perché la somma dei pedici indica l'errore?</button>
+                <table id="rxSubsets"></table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="motivationModal" class="modal">
+    <div class="modal-content">
+        <div id="modalBody"></div>
+        <button class="close-btn" onclick="closeMotivation()">Chiudi</button>
+    </div>
+</div>
+
+<div id="subsetFloatingPanel" class="subset-floating-panel"></div>
+
+<script>
+    let d_bits = [], c_val = 0, n_len = 0, cw_tx = [], cw_rx = [], errIdx = -1, lastSyndrome = 0;
+    let lastCorrectedSyndrome = 0;
+    let activeSubsetView = null;
+    let subsetHideTimer = null;
+    let pointerInsideSubsetPanel = false;
+
+    function runLab() {
+        const val = document.getElementById('txIn').value.replace(/[^01]/g, '');
+        document.getElementById('txIn').value = val;
+        if (!val) { reset(); return; }
+        d_bits = val.split('').map(Number);
+        errIdx = -1;
+        
+        let tbl = `<tr><th>c</th><th>(c+d+1) &le; 2^c</th><th>Esito</th></tr>`;
+        c_val = 1;
+        while (true) {
+            let lhs = c_val + d_bits.length + 1;
+            let rhs = Math.pow(2, c_val);
+            let ok = lhs <= rhs;
+            tbl += `<tr><td>${c_val}</td><td>${lhs} &le; ${rhs}</td><td style="color:${ok?'green':'red'}">${ok?'OK':'No'}</td></tr>`;
+            if (ok) break;
+            c_val++;
+        }
+        document.getElementById('trialTbl').innerHTML = tbl;
+        n_len = d_bits.length + c_val;
+        buildTX();
+    }
+
+    function reset() {
+        document.getElementById('txResult').style.display = "none";
+        document.getElementById('rxAnalysis').style.display = "none";
+        document.getElementById('txGrid').innerHTML = "";
+        document.getElementById('rxGrid').innerHTML = "";
+        document.getElementById('trialTbl').innerHTML = "";
+        hideSubsetPanel();
+    }
+
+    function buildTX() {
+        document.getElementById('txResult').style.display = "block";
+        cw_tx = new Array(n_len).fill(null);
+        let ptr = 0;
+        for (let i = 1; i <= n_len; i++) {
+            if ((i & (i - 1)) !== 0) cw_tx[i - 1] = d_bits[ptr++];
+        }
+
+        let subTbl = `<tr><th>Controllo</th><th>Sottoinsieme</th><th>Parità</th></tr>`;
+        for (let j = 0; j < c_val; j++) {
+            let pPos = Math.pow(2, j);
+            let subset = [], val = 0;
+            for (let i = 1; i <= n_len; i++) {
+                if (i & pPos) {
+                    if (i !== pPos) {
+                        subset.push(i);
+                        val ^= cw_tx[i - 1];
+                    }
+                }
+            }
+            cw_tx[pPos - 1] = val;
+            subTbl += `<tr class="active-row" onclick="toggleSubsetPanel('txGrid', ${pPos}, 'tx')" onmouseover="isolate('txGrid', ${pPos}, 'tx'); showSubsetPanel(${pPos}, 'tx')" onmouseout="handleSubsetMouseOut('txGrid', ${pPos}, 'tx')">
+                <td><b>b${pPos}</b></td><td>(${subset.join(', ')})</td><td><b>${val}</b></td></tr>`;
+        }
+        document.getElementById('txSubsets').innerHTML = subTbl;
+        cw_rx = [...cw_tx];
+        render('txGrid', cw_tx, false);
+        render('rxGrid', cw_rx, true);
+        processRX();
+    }
+
+    function render(id, arr, interact) {
+        const grid = document.getElementById(id); grid.innerHTML = '';
+        arr.forEach((b, i) => {
+            let pos = i + 1;
+            let isP = (pos & (pos - 1)) === 0;
+            let div = document.createElement('div');
+            div.className = 'bit-unit';
+            div.innerHTML = `
+                <div class="pos-sub">${pos}</div>
+                <div class="bit-box ${isP?'p-bit':'d-bit'} ${interact && i === errIdx?'error':''}" 
+                     ${interact?`onclick="setErr(${i})"`:''}>${b}</div>
+                <div class="label-sub">b${pos}</div>`;
+            grid.appendChild(div);
+        });
+    }
+
+   function isolate(gridId, pPos, mode) {
+    if (mode === 'tx') {
+        document.getElementById('dynamicTxLabel').innerText =
+            `Valori dei bit del SottoInsieme controllato da b${pPos}`;
+    }
+
+    const units = document.querySelectorAll(`#${gridId} .bit-unit`);
+
+    units.forEach((unit, i) => {
+        const pos = i + 1;
+        const bitBox = unit.querySelector('.bit-box');
+
+        if (!(pos & pPos)) {
+            // NON appartiene al sottoinsieme
+            bitBox.innerText = "";
+            bitBox.classList.add('empty');
+
+            // attenuazione visiva
+            unit.style.opacity = "0.3";
+            unit.style.transform = "scale(0.95)";
+
+        } else {
+            // appartiene al sottoinsieme
+            if (mode === 'tx' && pos === pPos) {
+                bitBox.innerText = "?";
+            } else {
+                bitBox.innerText = (mode === 'tx' ? cw_tx[i] : cw_rx[i]);
+            }
+
+            bitBox.classList.remove('empty');
+
+            // evidenziazione
+            unit.style.opacity = "1";
+            unit.style.transform = "scale(1.15)";
+        }
+    });
+}
+ function resetIso(gridId, mode) {
+    if (mode === 'tx') {
+        document.getElementById('dynamicTxLabel').innerText = "Codeword Trasmessa";
+    }
+
+    const units = document.querySelectorAll(`#${gridId} .bit-unit`);
+
+    units.forEach((unit, i) => {
+        const bitBox = unit.querySelector('.bit-box');
+
+        bitBox.innerText = (mode === 'tx' ? cw_tx[i] : cw_rx[i]);
+        bitBox.classList.remove('empty');
+
+        // RESET effetti visivi
+        unit.style.opacity = "";
+        unit.style.transform = "";
+    });
+}
+
+
+    function isSmallTouchScreen() {
+        return window.matchMedia('(max-width: 640px)').matches;
+    }
+
+    function toggleSubsetPanel(gridId, pPos, mode) {
+        const same = activeSubsetView &&
+            activeSubsetView.gridId === gridId &&
+            activeSubsetView.pPos === pPos &&
+            activeSubsetView.mode === mode;
+
+        if (same) {
+            resetIso(gridId, mode);
+            hideSubsetPanel();
+            activeSubsetView = null;
+            return;
+        }
+
+        if (activeSubsetView) {
+            resetIso(activeSubsetView.gridId, activeSubsetView.mode);
+        }
+
+        isolate(gridId, pPos, mode);
+        showSubsetPanel(pPos, mode);
+        activeSubsetView = { gridId, pPos, mode };
+    }
+
+    function clearSubsetHideTimer() {
+        if (subsetHideTimer) {
+            clearTimeout(subsetHideTimer);
+            subsetHideTimer = null;
+        }
+    }
+
+    function handleSubsetMouseOut(gridId, pPos, mode) {
+        if (isSmallTouchScreen()) return;
+        if (activeSubsetView && activeSubsetView.gridId === gridId && activeSubsetView.pPos === pPos && activeSubsetView.mode === mode) return;
+
+        clearSubsetHideTimer();
+        subsetHideTimer = setTimeout(() => {
+            if (pointerInsideSubsetPanel) return;
+            resetIso(gridId, mode);
+            hideSubsetPanel();
+        }, 220);
+    }
+
+    function closeSubsetPanel() {
+        clearSubsetHideTimer();
+        if (activeSubsetView) {
+            resetIso(activeSubsetView.gridId, activeSubsetView.mode);
+            activeSubsetView = null;
+        }
+        hideSubsetPanel();
+    }
+
+    function showSubsetPanel(pPos, mode) {
+        clearSubsetHideTimer();
+        const panel = document.getElementById('subsetFloatingPanel');
+        const source = mode === 'tx' ? cw_tx : cw_rx;
+
+        let bitsHtml = "";
+        let positions = [];
+        let ones = 0;
+        let onesWithoutControl = 0;
+
+        for (let i = 1; i <= n_len; i++) {
+            if (i & pPos) {
+                const isCtrl = (i & (i - 1)) === 0;
+                const isCurrentCtrl = i === pPos;
+                const valore = source[i - 1];
+                const valoreMostrato = (mode === 'tx' && isCurrentCtrl) ? "?" : valore;
+
+                positions.push(i);
+
+                if (Number(valore) === 1) ones++;
+                if (!isCurrentCtrl && Number(valore) === 1) onesWithoutControl++;
+
+                bitsHtml += `
+                    <div class="subset-floating-bit ${isCtrl ? 'ctrl' : 'data'}">
+                        b${i}<br>${valoreMostrato}
+                    </div>
+                `;
+            }
+        }
+
+        let conteggioHtml = "";
+        let contesto = "";
+
+        if (mode === 'tx') {
+            const bitControlloNecessario = onesWithoutControl % 2 === 0 ? 0 : 1;
+            const onesFinali = onesWithoutControl + bitControlloNecessario;
+            const paritaProvvisoria = onesWithoutControl % 2 === 0 ? "PARI" : "DISPARI";
+            const paritaFinale = onesFinali % 2 === 0 ? "PARI" : "DISPARI";
+
+            conteggioHtml = `
+                <div>Numero di 1 senza b${pPos}: <strong>${onesWithoutControl}</strong> → parità provvisoria: <strong>${paritaProvvisoria}</strong></div>
+                <div>Valore necessario: <strong>b${pPos} = ${bitControlloNecessario}</strong></div>
+                <div>Numero di 1 finale dopo b${pPos}: <strong>${onesFinali}</strong> → parità finale: <strong>${paritaFinale}</strong></div>
+            `;
+
+            contesto = "Mittente: il conteggio corretto va fatto prima senza il bit di controllo. Poi b" + pPos + " viene scelto per rendere pari il numero complessivo di 1.";
+        } else {
+            const parita = ones % 2 === 0 ? "PARI" : "DISPARI";
+
+            conteggioHtml = `
+                <div>Numero di 1: <strong>${ones}</strong> → parità: <strong>${parita}</strong></div>
+            `;
+
+            contesto = "Ricevitore: qui il controllo include anche il bit di controllo già ricevuto. Se la parità è dispari, il controllo fallisce e contribuisce alla sindrome.";
+        }
+
+        panel.innerHTML = `
+            <h3>Sottoinsieme controllato da b${pPos}</h3>
+            <div>Posizioni controllate: <strong>${positions.join(', ')}</strong></div>
+            ${conteggioHtml}
+            <div class="subset-floating-bits">${bitsHtml}</div>
+            <div class="subset-floating-note">${contesto}</div>
+            <button class="subset-close-btn" type="button" onclick="closeSubsetPanel()">Chiudi pannello</button>
+        `;
+
+        panel.classList.add('visible');
+    }
+
+    function hideSubsetPanel() {
+        document.getElementById('subsetFloatingPanel').classList.remove('visible');
+    }
+
+    function setErr(idx) {
+        if (errIdx === idx) { errIdx = -1; cw_rx = [...cw_tx]; } 
+        else { cw_rx = [...cw_tx]; errIdx = idx; cw_rx[idx] = cw_rx[idx] === 1 ? 0 : 1; }
+        render('rxGrid', cw_rx, true);
+        processRX();
+    }
+
+    function processRX() {
+        document.getElementById('rxAnalysis').style.display = "block";
+        let syndrome = 0, subTbl = `<tr><th>Check</th><th>Sottoinsieme</th><th>Esito</th></tr>`;
+        for (let j = 0; j < c_val; j++) {
+            let pPos = Math.pow(2, j), xor = 0, bits = [];
+            for (let i = 1; i <= n_len; i++) {
+                if (i & pPos) { xor ^= cw_rx[i-1]; bits.push(cw_rx[i-1]); }
+            }
+            if (xor !== 0) syndrome += pPos;
+            subTbl += `<tr class="active-row" onclick="toggleSubsetPanel('rxGrid', ${pPos}, 'rx')" onmouseover="isolate('rxGrid', ${pPos}, 'rx'); showSubsetPanel(${pPos}, 'rx')" onmouseout="handleSubsetMouseOut('rxGrid', ${pPos}, 'rx')">
+                <td>b${pPos}</td><td>[${bits.join(', ')}]</td><td style="color:${xor===0?'green':'red'}">${xor===0?'OK':'Sbagliata'}</td></tr>`;
+        }
+        document.getElementById('rxSubsets').innerHTML = subTbl;
+        lastSyndrome = syndrome;
+        const alert = document.getElementById('synAlert'), btn = document.getElementById('btnMotivazione');
+        if (syndrome === 0) {
+            alert.style.background = "#dcfce7"; alert.style.color = "#166534";
+            alert.innerHTML = "✓ Trasmissione Corretta."; btn.style.display = "none";
+        } else {
+            alert.style.background = "#fee2e2"; alert.style.color = "#991b1b";
+            alert.innerHTML = `
+    ⚠️ Errore rilevato alla posizione ${syndrome}.<br>
+    <button onclick="correctError()" 
+        style="margin-top:10px; background:var(--success); color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:bold;">
+        Correggi errore
+        </button>
+`       ;
+        btn.style.display = "block";
+        }
+    }
+
+    function correctError() {
+        if (lastSyndrome <= 0 || lastSyndrome > n_len) return;
+
+        lastCorrectedSyndrome = lastSyndrome;
+
+        const idx = lastSyndrome - 1;
+        cw_rx[idx] = cw_rx[idx] === 1 ? 0 : 1;
+
+        errIdx = -1;
+
+        render('rxGrid', cw_rx, true);
+        processRX();
+
+        lastSyndrome = lastCorrectedSyndrome;
+
+        const btn = document.getElementById('btnMotivazione');
+        btn.style.display = "block";
+        btn.innerHTML = "🔍 Rivedi perché la sindrome indicava l'errore";
+    }
+
+    function showMotivation() {
+        const modal = document.getElementById('motivationModal');
+        const body = document.getElementById('modalBody');
+        let binaryExplanationRows = "";
+        let failedBits = [];
+        
+        for (let k = 0; k < c_val; k++) {
+            let peso = Math.pow(2, k);
+            let ak = (lastSyndrome & peso) ? 1 : 0;
+            if (ak === 1) failedBits.push(peso);
+            
+            binaryExplanationRows += `
+                <tr>
+                    <td>k = ${k}</td>
+                    <td>a<sub>${k}</sub> = <b>${ak}</b></td>
+                    <td>2<sup>${k}</sup> = ${peso}</td>
+                    <td style="color:${ak === 1 ? 'var(--error)' : 'var(--success)'}">${ak === 1 ? 'Fallito (Somma)' : 'OK (Salta)'}</td>
+                </tr>`;
+        }
+
+        body.innerHTML = `
+            <h2 style="color:var(--primary); border-bottom:2px solid #eee; padding-bottom:10px;">
+                Logica della Correzione: Posizione ${lastSyndrome}
+            </h2>
+            
+            <div class="logic-step">
+                <strong>1. Scomposizione binaria secondo Leibniz:</strong><br>
+                Ogni numero intero N può essere espresso in modo unico come somma di potenze di 2, dove i coefficienti a<sub>k</sub> possono essere solo <b>0</b> o <b>1</b>:
+                <div style="margin: 20px 0; text-align: center;">
+                    <math display="block" style="font-size:1.4rem;">
+                      <mi>N</mi>
+                      <mo>=</mo>
+                      <munderover>
+                        <mo>&sum;</mo>
+                        <mrow><mi>k</mi><mo>=</mo><mn>0</mn></mrow>
+                        <mi>n</mi>
+                      </munderover>
+                      <msub><mi>a</mi><mi>k</mi></msub>
+                      <msup><mn>2</mn><mi>k</mi></msup>
+                    </math>
+                </div>
+            </div>
+
+            <div class="logic-step">
+                <strong>2. Tabella dei Pesi per N = ${lastSyndrome}:</strong><br>
+                <table class="weight-table">
+                    <thead>
+                        <tr>
+                            <th>Esponente (k)</th><th>Bit (a<sub>k</sub>)</th><th>Peso (2<sup>k</sup>)</th><th>Stato Check</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${binaryExplanationRows}
+                        <tr style="background:#e0f2fe; font-weight:bold;">
+                            <td colspan="2">Totale (Somma dei pesi falliti)</td>
+                            <td colspan="2" style="text-align:center; font-size:1.2rem;">${lastSyndrome}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="logic-step">
+                <strong>3. Perché la somma dei pedici trova l'errore?</strong><br>
+                Ogni bit di controllo b<sub>2<sup>k</sup></sub> sorveglia una specifica "colonna" binaria nelle posizioni dei bit.<br>
+                Se il bit in posizione <span class="math-box">${lastSyndrome}</span> si inverte, esso farà saltare 
+                <b>esattamente</b> i controlli le cui potenze di 2 compongono il numero ${lastSyndrome} nella scomposizione di Leibniz.<br><br>
+                Sommando i pedici dei check falliti (<span class="math-box">${failedBits.map(b => 'b'+b).join(', ')}</span>), 
+                il ricevitore ricostruisce matematicamente l'indirizzo binario scritto dall'errore stesso.
+            </div>
+
+            <div class="logic-step">
+                <strong>4. Fondamento logico XOR:</strong><br>
+                Il check di parità viene implementato tramite l'operatore logico XOR. Se il numero di '1' nel sottoinsieme controllato è dispari, lo XOR restituisce 1 (Errore).
+                <table style="width:100%; text-align:center; margin-top:10px; border:1px solid #ddd;">
+                    <tr style="background:#eee;"><th>A</th><th>B</th><th>A ^ B</th><th>Esito</th></tr>
+                    <tr><td>0</td><td>0</td><td>0</td><td>Pari (OK)</td></tr>
+                    <tr><td>1</td><td>1</td><td>0</td><td>Pari (OK)</td></tr>
+                    <tr><td>0</td><td>1</td><td>1</td><td>Dispari (ERRORE)</td></tr>
+                    <tr><td>1</td><td>0</td><td>1</td><td>Dispari (ERRORE)</td></tr>
+                </table>
+            </div>
+        `;
+        modal.style.display = "flex";
+    }
+
+    function closeMotivation() { document.getElementById('motivationModal').style.display = "none"; }
+    
+    const subsetPanelEl = document.getElementById('subsetFloatingPanel');
+    subsetPanelEl.addEventListener('mouseenter', () => {
+        pointerInsideSubsetPanel = true;
+        clearSubsetHideTimer();
+    });
+    subsetPanelEl.addEventListener('mouseleave', () => {
+        pointerInsideSubsetPanel = false;
+        if (!activeSubsetView && !isSmallTouchScreen()) {
+            hideSubsetPanel();
+        }
+    });
+    subsetPanelEl.addEventListener('touchstart', () => {
+        pointerInsideSubsetPanel = true;
+        clearSubsetHideTimer();
+    }, { passive: true });
+
+    runLab();
+</script>
+
+<footer>
+    © 2026 – Domenico Capano<br>
+    Progetto didattico: LearningObjects.org
+</footer>
+
+</body>
+</html>

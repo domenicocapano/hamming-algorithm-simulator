@@ -1,0 +1,22 @@
+EDUCATIONAL USE LICENSE
+
+Copyright (c) 2026 Domenico Capano
+
+All rights reserved.
+
+This software and associated documentation (the "Software") are protected by copyright law.
+
+Permission is hereby granted to use the Software **exclusively for educational purposes**, under the following conditions:
+
+1. The Software may be used, copied, and shared for teaching, learning, and academic activities.
+2. The Software may NOT be used for commercial purposes.
+3. The Software may NOT be modified, redistributed, or republished without explicit written permission from the author.
+4. Proper attribution to the author must always be included.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+For permissions beyond educational use, please contact the author.
+
+Author:
+Domenico Capano
+LearningObjects.org
