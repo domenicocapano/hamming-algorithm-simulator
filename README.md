@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20011269.svg)](https://doi.org/10.5281/zenodo.20011269)
 # Hamming Algorithm Simulator (Single-Bit Error Detection and Correction)
 
 ## Description
