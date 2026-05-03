@@ -1,6 +1,11 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20011269.svg)](https://doi.org/10.5281/zenodo.20011269)
 # Hamming Algorithm Simulator (Single-Bit Error Detection and Correction)
 
+## Online Simulator
+
+👉 https://domenicocapano.github.io/hamming-algorithm-simulator/
+
+This simulator can be used directly in the browser without installation.
 ## Description
 
 This project is an educational simulator designed to illustrate the functioning 
